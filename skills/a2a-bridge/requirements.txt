@@ -1,0 +1,2 @@
+# A2A Bridge Skill - Python Dependencies
+requests>=2.31.0
