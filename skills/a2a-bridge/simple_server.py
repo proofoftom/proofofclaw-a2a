@@ -36,6 +36,19 @@ class AgentCardHandler(SimpleHTTPRequestHandler):
             self.wfile.write(b'Not found')
             print(f"[Server] 404: {self.path}")
 
+    def do_HEAD(self):
+        """Handle HEAD requests (for healthchecks)."""
+        if self.path == "/agent-card.json":
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            print(f"[Server] HEAD request for Agent Card from {self.client_address}")
+        else:
+            self.send_response(404)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            print(f"[Server] HEAD 404: {self.path}")
+
 class ReusableHTTPServer(HTTPServer):
     """HTTPServer with address reuse enabled."""
     allow_reuse_address = True
