@@ -46,7 +46,7 @@ def run_server():
     print("[Server] Serving Agent Card at http://localhost:8765/agent-card.json")
     print("[Server] Press Ctrl+C to stop")
 
-    server = ReusableHTTPServer(('localhost', 8765), AgentCardHandler)
+    server = ReusableHTTPServer(('', 8765), AgentCardHandler)
 
     try:
         server.serve_forever()
