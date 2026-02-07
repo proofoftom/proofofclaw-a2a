@@ -4,7 +4,7 @@ Simple HTTP server for serving Agent A Card
 """
 
 import json
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+import socket
 
 # Agent Card for Agent A
 agent_a_card = {
@@ -17,54 +17,60 @@ agent_a_card = {
     "supported_tasks": ["research", "coding", "writing"]
 }
 
-class AgentCardHandler(SimpleHTTPRequestHandler):
-    """Handler for serving Agent Card."""
-
-    def do_GET(self):
-        """Handle GET requests."""
-        if self.path == "/agent-card.json":
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            content = json.dumps(agent_a_card).encode('utf-8')
-            self.wfile.write(content)
-            print(f"[Server] Served Agent Card to {self.client_address}")
+def handle_request(client_socket, client_address):
+    """Handle HTTP request from client socket."""
+    try:
+        request_data = client_socket.recv(4096).decode('utf-8')
+        print(f"[Server] Received from {client_address}: {request_data[:100]}")
+        
+        if request_data.startswith('GET /agent-card.json'):
+            # Prepare JSON response
+            response_body = json.dumps(agent_a_card, indent=2)
+            response = (
+                f"HTTP/1.1 200 OK\r\n"
+                f"Content-Type: application/json\r\n"
+                f"Content-Length: {len(response_body)}\r\n"
+                f"Connection: close\r\n"
+                f"\r\n"
+                f"{response_body}"
+            )
+            client_socket.send(response.encode('utf-8'))
+            print(f"[Server] Sent Agent Card to {client_address}")
         else:
-            self.send_response(404)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            self.wfile.write(b'Not found')
-            print(f"[Server] 404: {self.path}")
-
-    def do_HEAD(self):
-        """Handle HEAD requests (for healthchecks)."""
-        if self.path == "/agent-card.json":
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            print(f"[Server] HEAD request for Agent Card from {self.client_address}")
-        else:
-            self.send_response(404)
-            self.send_header('Content-Type', 'text/plain')
-            self.end_headers()
-            print(f"[Server] HEAD 404: {self.path}")
-
-class ReusableHTTPServer(HTTPServer):
-    """HTTPServer with address reuse enabled."""
-    allow_reuse_address = True
+            response = (
+                f"HTTP/1.1 404 Not Found\r\n"
+                f"Content-Type: text/plain\r\n"
+                f"Content-Length: 9\r\n"
+                f"Connection: close\r\n"
+                f"\r\n"
+                f"Not found"
+            )
+            client_socket.send(response.encode('utf-8'))
+            print(f"[Server] 404 for {client_address}")
+    except Exception as e:
+        print(f"[Server] Error handling {client_address}: {e}")
+    finally:
+        client_socket.close()
 
 def run_server():
     """Run the HTTP server."""
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind(('0.0.0.0', 8765))
+    server_socket.listen(5)
+    
     print("[Server] Starting discovery server on port 8765")
-    print("[Server] Serving Agent Card at http://localhost:8765/agent-card.json")
+    print("[Server] Serving Agent Card at http://0.0.0.0:8765/agent-card.json")
     print("[Server] Press Ctrl+C to stop")
-
-    server = ReusableHTTPServer(('', 8765), AgentCardHandler)
-
+    
     try:
-        server.serve_forever()
+        while True:
+            client_socket, client_address = server_socket.accept()
+            print(f"[Server] Connection from {client_address}")
+            handle_request(client_socket, client_address)
     except KeyboardInterrupt:
         print("\n[Server] Server stopped")
+        server_socket.close()
 
 if __name__ == "__main__":
     run_server()
